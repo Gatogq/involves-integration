@@ -14,9 +14,9 @@ def success_hook(flow, flow_run, state):
 
     completion_time = datetime.now()
 
-    teams_webhook_block.notify(f"""Se ejecutó correctamente el flujo {flow}. 
+    teams_webhook_block.notify(f"""Se ejecutó correctamente el flujo {flow.name}. 
                                flujo concluido con status {state} en {completion_time}.
-                               para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run}""")
+                               para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_id}""")
     
 def failure_hook(flow, flow_run, state):
 
