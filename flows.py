@@ -792,7 +792,7 @@ def update_involves_clinical(env=5):
         
         from prefect.blocks.system import JSON
 
-        env_vars = JSON.load("involves-workpool-environment-variables")
+        env_vars = JSON.load("involves-workpool-environment-variables").value
 
         username = env_vars('USER')
         password = env_vars('PASSWORD')
