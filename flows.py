@@ -58,9 +58,11 @@ def set_sql_database_connection(server,driver='{ODBC Driver 17 for SQL Server}',
 
     try:
 
-        pyodbc.connect(connection_string)
+        connection = pyodbc.connect(connection_string)
         print(f'''Conexion al servidor realizada con exito.
                Parametros de conexion:  Server: {server}.   Database: {database}.''')
+        
+        return connection
 
     except pyodbc.Error as e:
 
