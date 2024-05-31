@@ -794,9 +794,9 @@ def update_involves_clinical(env=5):
 
         env_vars = JSON.load("involves-workpool-environment-variables").value
 
-        username = env_vars('USER')
-        password = env_vars('PASSWORD')
-        server = env_vars('SERVER')
+        username = env_vars['USER']
+        password = env_vars['PASSWORD']
+        server = env_vars['SERVER']
 
         auth = basic_auth(username,password)
 
