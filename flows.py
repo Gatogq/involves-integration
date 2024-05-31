@@ -596,7 +596,7 @@ def get_surveys(sql_connection,auth,env,form_id=None):
     return header_df, detail_df
 
 
-@task(name='Descarga Visitas',retries=3)            
+@task(name='Descarga Visitas',log_prints=True,retries=3)            
 def download_visits(username,password,date,env,wait=10,download_folder=None,headless_mode=False,file_name ='informe-gerencial-visitas.xlsx'):
     
     if download_folder is None:
@@ -743,7 +743,7 @@ def download_visits(username,password,date,env,wait=10,download_folder=None,head
     return df
 
 
-@task(name='Actualizar Tabla SQL')
+@task(name='Actualizar Tabla SQL',log_prints=True)
 def insert_df_into_table(connection, table_name, df, delete=False):
 
     df = df.replace({np.NaN: None})
@@ -817,7 +817,10 @@ def update_involves_dkt(env=1):
 
 @flow(
         name='actualizacion_db_involves_clinical',
-        description='actualiza las tablas en la base de datos de involves clinical'
+        description='actualiza las tablas en la base de datos de involves clinical',
+        on_completion=[success_hook],
+        on_failure=[failure_hook],
+        on_crashed=[failure_hook]
         )
 def update_involves_clinical(env=5):
         
