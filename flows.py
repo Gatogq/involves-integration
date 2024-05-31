@@ -815,10 +815,7 @@ def update_involves_dkt(env=1):
 
 @flow(
         name='actualizacion_db_involves_clinical',
-        description='actualiza las tablas en la base de datos de involves clinical',
-        log_prints=True,
-        on_failure=failure_hook,
-        on_completion=success_hook
+        description='actualiza las tablas en la base de datos de involves clinical'
         )
 def update_involves_clinical(env=5):
         
