@@ -3,11 +3,39 @@ from datetime import timedelta
 from prefect import flow, task
 from prefect.deployments import Deployment
 import numpy as np
+import pyodbc
 
 
-@task(name='Establecer conexion SQL')
-def sql_database_connection(server,driver='{ODBC Driver 17 for SQL Server}',trusted_connection=True,database=None,user=None,password=None):
+def success_hook(flow, flow_run, state):
+
+    from prefect.blocks.notifications import MicrosoftTeamsWebhook
+
+    teams_webhook_block = MicrosoftTeamsWebhook.load("teams-notifications-webhook")
+
+    completion_time = datetime.now()
+
+    teams_webhook_block.notify(f"""Se ejecutó correctamente el flujo {flow}. 
+                               flujo concluido con status {state} en {completion_time}.
+                               para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run}""")
     
+def failure_hook(flow, flow_run, state):
+
+    from prefect.blocks.notifications import MicrosoftTeamsWebhook
+
+    teams_webhook_block = MicrosoftTeamsWebhook.load("teams-notifications-webhook")
+
+    completion_time = datetime.now()
+
+    teams_webhook_block.notify(f"""Ocurrió un error al intentar ejecutar el flujo {flow}.
+                                flujo concluido con status {state} en {completion_time}.
+                                para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run}""")
+
+
+
+
+@task(name='Establecer conexion SQL',log_prints=True)
+def set_sql_database_connection(server,driver='{ODBC Driver 17 for SQL Server}',trusted_connection=True,database=None,user=None,password=None):  
+
     if trusted_connection:
         connection_string = (
             f"""DRIVER={driver};
@@ -23,13 +51,24 @@ def sql_database_connection(server,driver='{ODBC Driver 17 for SQL Server}',trus
                 PWD={password};
                 """
             )
+        
     if database:
+
         connection_string += f"DATABASE={database};"
 
-    return connect(connection_string)
+    try:
+
+        pyodbc.connect(connection_string)
+        print(f'''Conexion al servidor realizada con exito.
+               Parametros de conexion:  Server: {server}.   Database: {database}.''')
+
+    except pyodbc.Error as e:
+
+        raise(f'Error al intentar establecer una conexion con el servidor {server}: {e}')
 
 
-@task(name='Descarga tabla PDV')
+
+@task(name='Descarga tabla PDV',log_prints=True)
 def get_pointofsale_table(auth,env,fields,at_page=None):
 
     endpoint = f'/v1/{env}/pointofsale'
@@ -49,12 +88,12 @@ def get_pointofsale_table(auth,env,fields,at_page=None):
             ]
             
             ).map(set_null_values)
-    df.to_excel('postest.xlsx')
+
 
     return df
 
 
-@task(name='Descarga tabla Usuarios')
+@task(name='Descarga tabla Usuarios',log_prints=True)
 def get_employee_table(auth,env,fields,at_page=None):
 
     endpoint = f'/v1/{env}/employeeenvironment'
@@ -78,7 +117,7 @@ def get_employee_table(auth,env,fields,at_page=None):
     return df
 
 
-@task(name='Descarga tabla Cadenas PDV')
+@task(name='Descarga tabla Cadenas PDV',log_prints=True)
 def get_chain_table(auth,env,at_page=None):
 
     endpoint = f'/v1/{env}/chain'
@@ -104,7 +143,7 @@ def get_chain_table(auth,env,at_page=None):
     return df
 
 
-@task(name='Descarga tabla Tipos PDV')
+@task(name='Descarga tabla Tipos PDV',log_prints=True)
 def get_type_table(auth):
 
     endpoint = '/v1/pointofsaletype/find'
@@ -129,7 +168,7 @@ def get_type_table(auth):
 
     return df
 
-@task(name='Descarga tabla Perfiles PDV')
+@task(name='Descarga tabla Perfiles PDV',log_prints=True)
 def get_profile_table(auth,env):
 
     endpoint = f'/v1/{env}/pointofsaleprofile/find'
@@ -156,7 +195,7 @@ def get_profile_table(auth,env):
 
 
 
-@task(name='Descarga tabla Canales PDV')
+@task(name='Descarga tabla Canales PDV',log_prints=True)
 def get_channel_table(auth):
 
     endpoint = f'/v3/pointofsalechannels'
@@ -182,7 +221,7 @@ def get_channel_table(auth):
     return df
 
 
-@task(name='Descarga tabla Regiones')
+@task(name='Descarga tabla Regiones',log_prints=True)
 def get_regional_table(auth,env):
 
     endpoint = f'/v3/environments/{env}/regionals'
@@ -208,7 +247,7 @@ def get_regional_table(auth,env):
     return df
 
 
-@task(name='Descarga Tabla relacion Usuarios/Region')
+@task(name='Descarga Tabla Usuarios/Region',log_prints=True)
 def get_employeeregion_table(employee_df,auth,env,exclude=[40,57,92,93]):
 
     employees = list(filter(lambda x: x not in exclude, employee_df['id'].to_list()))
@@ -247,7 +286,7 @@ def get_employeeregion_table(employee_df,auth,env,exclude=[40,57,92,93]):
 
     return df_
 
-@task(name='Descarga tabla Macroregionales')
+@task(name='Descarga tabla Macroregionales',log_prints=True)
 def get_macroregional_table(regional_df,auth,env):
 
     macroregionals = regional_df['id'].drop_duplicates().to_list()
@@ -273,7 +312,7 @@ def get_macroregional_table(regional_df,auth,env):
 
     return df
 
-@task(name='Descarga tabla Ausencias')
+@task(name='Descarga tabla Ausencias',log_prints=True)
 def get_absence_table(auth,env):
 
     endpoint = f'/v1/{env}/employeeabsence'
@@ -299,7 +338,7 @@ def get_absence_table(auth,env):
 
     return df.drop_duplicates()
 
-@task(name='Descarga tabla Productos')
+@task(name='Descarga tabla Productos',log_prints=True)
 def get_product_table(auth,env):
 
     endpoint = f'/v3/environments/{env}/skus'
@@ -324,7 +363,7 @@ def get_product_table(auth,env):
 
     return df
 
-@task(name='Descarga tabla marca Productos')
+@task(name='Descarga tabla marca Productos',log_prints=True)
 def get_brand_table(auth,env):
     
     endpoint = f'/v3/environments/{env}/brands'
@@ -350,7 +389,7 @@ def get_brand_table(auth,env):
     return df
 
 
-@task(name='Descarga tabla Categoria Producto')
+@task(name='Descarga tabla Categoria Producto',log_prints=True)
 def get_category_table(product_df,auth,env):
 
     categories = product_df['category.id'].drop_duplicates().to_list()
@@ -376,7 +415,7 @@ def get_category_table(product_df,auth,env):
 
     return df
 
-@task(name='Descarga tabla Supercategorias')
+@task(name='Descarga tabla Supercategorias',log_prints=True)
 def get_supercategory_table(product_df,auth,env):
 
     supercategories = product_df['supercategory.id'].drop_duplicates().to_list()
@@ -401,7 +440,7 @@ def get_supercategory_table(product_df,auth,env):
 
     return df
 
-@task(name='Descarga tabla Linea Producto',cache_key_fn=static_cache_fn,cache_expiration=timedelta(days=1))
+@task(name='Descarga tabla Linea Producto',log_prints=True)
 def get_productline_table(product_df,auth,env):
 
     lines = product_df['productLine.id'].drop_duplicates().to_list()
@@ -431,7 +470,7 @@ def get_productline_table(product_df,auth,env):
 
     return df
 
-@task(name='Descarga tabla Formularios',cache_key_fn=static_cache_fn,cache_expiration=timedelta(days=1))
+@task(name='Descarga tabla Formularios',log_prints=True)
 def get_form_table(auth,env):
         
     endpoint = f'/v1/{env}/form/formsActivated'
@@ -442,8 +481,6 @@ def get_form_table(auth,env):
     }
 
     response = involves_paginated_request(auth=auth,endpoint=endpoint,key=None,params=params,paginated=False)
-
-    print(response)
 
     fields = ['id','name']
 
@@ -458,7 +495,7 @@ def get_form_table(auth,env):
 
     return df
 
-@task(name='Descarga tabla campos Formularios',cache_key_fn=static_cache_fn,cache_expiration=timedelta(days=1))
+@task(name='Descarga tabla campos Formularios',log_prints=True)
 def get_formfield_table(form_df,auth,env):
 
     forms = form_df['id'].drop_duplicates().to_list()
@@ -471,8 +508,7 @@ def get_formfield_table(form_df,auth,env):
         endpoint = f'/v1/{env}/form/formFields/{form}'
 
         response = involves_paginated_request(auth=auth,endpoint=endpoint,key=None,paginated=False)
-        
-        print(response)
+
         df = pd.DataFrame(response)
 
         df['form.id'] = form
@@ -527,13 +563,9 @@ def get_surveys(sql_connection,auth,env,form_id=None):
             'response_date': header['responseDate'],
             'employee_id': header['ownerId'],
             'customer_id': header['pointOfSaleId']
-        }  
-
-        print(ordered_header) 
-
+        }   
 
         header_list.append(ordered_header)
-
 
         for answer in response_['answers']:
 
@@ -552,8 +584,6 @@ def get_surveys(sql_connection,auth,env,form_id=None):
                 'value': value
 
             }
-
-            print(ordered_detail)
 
             detail_list.append(ordered_detail)
 
@@ -766,7 +796,7 @@ def update_involves_dkt(env=1):
 
     auth = basic_auth(username,password)
 
-    connection = sql_database_connection(server=server,database='Involves_DKT')
+    connection = set_sql_database_connection(server=server,database='Involves_DKT')
 
     get_employee_table(
 
@@ -786,11 +816,14 @@ def update_involves_dkt(env=1):
 @flow(
         name='actualizacion_db_involves_clinical',
         description='actualiza las tablas en la base de datos de involves clinical',
-        log_prints=True
+        log_prints=True,
+        on_failure=failure_hook,
+        on_completion=success_hook
         )
 def update_involves_clinical(env=5):
         
         from prefect.blocks.system import JSON
+        
 
         env_vars = JSON.load("involves-workpool-environment-variables").value
 
@@ -800,7 +833,7 @@ def update_involves_clinical(env=5):
 
         auth = basic_auth(username,password)
 
-        connection = sql_database_connection(server=server,database='Involves')
+        connection = set_sql_database_connection(server=server,database='Involves')
         
         types = get_type_table.submit(auth=auth)
         channels = get_channel_table.submit(auth=auth)
@@ -854,4 +887,6 @@ def update_involves_clinical(env=5):
             insert_df_into_table(connection=conn,table_name='Employee',df=employees,delete=True,wait_for=[employees])
             insert_df_into_table(connection=conn,table_name='PointOfSale',df=pos,delete=True,wait_for=[pos])
             insert_df_into_table(connection=conn,table_name='Visit',df=visits,delete=True,wait_for=[visits])
+
+        
 

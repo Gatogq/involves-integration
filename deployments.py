@@ -9,5 +9,5 @@ if __name__ == '__main__':
                         ).deploy(
                             name='update_involves_db_from_repo',
                             work_pool_name='Involves',
-                            build=False
+                            cron=""
                         )

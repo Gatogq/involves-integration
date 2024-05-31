@@ -11,7 +11,6 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from os import remove
 from os.path import join
-from pyodbc import connect
 from base64 import b64encode
 from tempfile import mkdtemp
 
@@ -42,46 +41,52 @@ def involves_paginated_request(auth,endpoint,key='items',params=None,at_page=Non
     page = 1
     totalPages = None
 
-    if paginated:
+    try:
 
-        while totalPages is None or page < totalPages + 1:
+        print(f'Extrayendo informacion de {endpoint}')
 
-            try:
-                
-                response = requests.get(f'{url}{endpoint}?page={page}',headers=headers,params=params)
-                response.raise_for_status()
+        if paginated:
 
-                if key is not None:
+            while totalPages is None or page < totalPages + 1:
 
-                    items = response.json().get(key,[])
-
-                else:
+                try:
                     
-                    items = response.json()
+                    response = requests.get(f'{url}{endpoint}?page={page}',headers=headers,params=params)
+                    response.raise_for_status()
+
+                    if key is not None:
+
+                        items = response.json().get(key,[])
+
+                    else:
+                        
+                        items = response.json()
 
 
-                rows.extend(items)
+                    rows.extend(items)
 
-                totalPages = response.json().get('totalPages')
+                    totalPages = response.json().get('totalPages')
 
-                if at_page is not None:
+                    if at_page is not None:
 
-                    totalPages = at_page
+                        totalPages = at_page
 
-                page += 1
+                    page += 1
 
-            except Exception as e:
-            
-                print(f"No se encontró información en: {endpoint} : {e}")
-                break
-    else:
+                except Exception as e:
+                
+                    print(f"No se encontró información en: {endpoint} : {e}")
+                    break
+        else:
 
-        response = requests.get(f'{url}{endpoint}',headers=headers,params=params)
-        response.raise_for_status()
-        rows = response.json()
+            response = requests.get(f'{url}{endpoint}',headers=headers,params=params)
+            response.raise_for_status()
+            rows = response.json()
 
-    return rows
-
+        return rows
+    
+    except Exception as e:
+        raise(f'Error al extraer datos de la API de Involves: {e}')
 
 def extract_json_keys(d, keys):
 
