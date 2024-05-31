@@ -790,13 +790,13 @@ def update_involves_dkt(env=1):
         )
 def update_involves_clinical(env=5):
         
-        from dotenv import load_dotenv
-        from os import getenv
+        from prefect.blocks.system import JSON
 
-        load_dotenv('config/.env')
-        username = getenv('USER')
-        password = getenv('PASSWORD')
-        server = getenv('SERVER')
+        env_vars = JSON.load("involves-workpool-environment-variables")
+
+        username = env_vars('USER')
+        password = env_vars('PASSWORD')
+        server = env_vars('SERVER')
 
         auth = basic_auth(username,password)
 
