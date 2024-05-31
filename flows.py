@@ -855,11 +855,3 @@ def update_involves_clinical(env=5):
             insert_df_into_table(connection=conn,table_name='PointOfSale',df=pos,delete=True,wait_for=[pos])
             insert_df_into_table(connection=conn,table_name='Visit',df=visits,delete=True,wait_for=[visits])
 
-
-if __name__ == '__main__':
-
-    Deployment.build_from_flow(
-        flow=update_involves_clinical,
-            name='Flujo BD Involves Clinical',
-        work_pool_name='Involves'
-    ).apply()
