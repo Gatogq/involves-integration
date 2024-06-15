@@ -163,3 +163,13 @@ cython_debug/
 
 #custom
 /config
+
+example.db
+.vscode
+.alpackages
+.snapshots
+cached
+log
+__pycache__
+previous files
+tests

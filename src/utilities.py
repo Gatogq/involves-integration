@@ -13,6 +13,7 @@ from os import remove
 from os.path import join
 from base64 import b64encode
 from tempfile import mkdtemp
+from numpy import isnan
 
 def basic_auth(username,password):
     
@@ -91,7 +92,7 @@ def involves_paginated_request(auth,endpoint,key='items',params=None,at_page=Non
 def extract_json_keys(d, keys):
 
     try:
-        return reduce(lambda d, k: d.get(k, {}), keys.split('.'), d)
+        return reduce(lambda d, k: d.get(k, {}), keys.split('_'), d)
     
     except (AttributeError, TypeError):
         return None
@@ -101,7 +102,7 @@ def extract_nested_keys(data, keys):
     result = {}
 
     for key in keys:
-        nested_keys = key.split('.') 
+        nested_keys = key.split('_') 
         temp = data
 
         for nested_key in nested_keys:
@@ -166,7 +167,21 @@ def involves_date(date):
 
 def set_null_values(value):
     
-    if isinstance(value, dict) or value == '':
+    if isinstance(value, dict):
+
         return None
+    
+    if value == '':
+
+        return None
+    
+    try:
+
+        if isnan(value):
+
+            return None
+        
+    except TypeError:
+        pass
     
     return value
