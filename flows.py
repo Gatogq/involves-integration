@@ -2,7 +2,7 @@ from src.involves_client import InvolvesAPIClient
 from src.sql_engine import SQLServerEngine
 from src.utilities import set_null_values,download_visits
 from datetime import datetime
-from pandas import DataFrame, to_datetime
+from pandas import DataFrame
 from prefect import task, flow
 from prefect.blocks.system import JSON
 from prefect.artifacts import create_markdown_artifact
@@ -115,7 +115,7 @@ def get_visit_data(SQLSession,username,password,environment,fields,table):
 
      date = SQLSession.get_last_visit_date(table=table,column='visit_date')
 
-     df = download_visits(username=username,password=password,date=date,env=environment,headless_mode=False).map(set_null_values)
+     df = download_visits(username=username,password=password,date=date,env=environment,headless_mode=False)
 
      df.columns = fields
 

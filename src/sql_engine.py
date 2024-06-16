@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, MetaData, Table, select
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError,OperationalError,SQLAlchemyError
 
 class SQLServerEngine:
 
@@ -54,7 +55,7 @@ class SQLServerEngine:
             print(f'Se insertaron correctamente los nuevos registros en la tabla {table_name}. Se añadieron {len(df)} registros')
 
         except Exception as e:
-            raise(f'Error al intentar actualizar la tabla {table_name}: {e}')
+            raise SQLAlchemyError(f'Error al intentar actualizar la tabla {table_name}: {e}')
 
         
     
@@ -76,7 +77,7 @@ class SQLServerEngine:
 
         except Exception as e:
 
-            raise(f'Error al intentar actualizar registros en la tabla {table_name}: {e}')
+            raise SQLAlchemyError(f'Error al intentar actualizar registros en la tabla {table_name}: {e}')
 
     def get_columns_from_table(self, table):
 
@@ -140,6 +141,7 @@ class SQLServerEngine:
 
             return [tuple(row) for row in r]
         else:
+            
             return [row[0] for row in r]
 
 
