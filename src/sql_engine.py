@@ -141,13 +141,6 @@ class SQLServerEngine:
 
             return [tuple(row) for row in r]
         else:
-            
+
             return [row[0] for row in r]
 
-
-if __name__ == "__main__":
-
-    engine = SQLServerEngine(engine_type='sqlite',database='example.db')
-
-    x = engine.select_values(table='Visit',columns=['visit_date','customer_id'])
-    print(x)

@@ -187,7 +187,7 @@ def set_null_values(value):
     return value
 
 
-def download_visits(username,password,date,env,wait=10,download_folder=None,headless_mode=False,file_name='informe-gerencial-visitas.xlsx'):
+def download_visits(username,password,date,env,domain,wait=10,download_folder=None,headless_mode=False,file_name='informe-gerencial-visitas.xlsx'):
     
     if download_folder is None:
         download_folder = mkdtemp()
@@ -209,7 +209,7 @@ def download_visits(username,password,date,env,wait=10,download_folder=None,head
         
         #abrir el navegador
         driver = webdriver.Chrome(options=chrome_options)      
-        driver.get('https://dkt.involves.com/login')
+        driver.get(f'https://{domain}.involves.com/login')
         driver.implicitly_wait(10) #10 segundos máximos de espera, de lo contrario devuelve exception
 
         # Esperar el inputbox 'username' 
@@ -243,7 +243,7 @@ def download_visits(username,password,date,env,wait=10,download_folder=None,head
         if env == 1:
             page_id = 'Mflfx4vR~2FUIfTPLg5S4O8Q=='
 
-        driver.get(f'https://dkt.involves.com/webapp/#!/app/{page_id}/paineldevisitas')
+        driver.get(f'https://{domain}.involves.com/webapp/#!/app/{page_id}/paineldevisitas')
         
         #Esperar el filtro de fecha
         input_element = WebDriverWait(driver,10).until(
@@ -332,10 +332,3 @@ def download_visits(username,password,date,env,wait=10,download_folder=None,head
                      'Último check-out manual','Total de encuestas respondidas','Motivo para no realizar la visita']]
 
     return df
-
-if __name__ == "__main__":
-
-    x = download_visits(username='sistemas',password='sistemas',date=datetime(2024,6,14),env=5)
-
-    print(x['Primer check-in manual'])
-

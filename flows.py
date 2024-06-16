@@ -111,11 +111,11 @@ def get_employee_data(Client,SQLSession,fields,table):
           }
 
 @task(name='Descarga visitas',log_prints=True)
-def get_visit_data(SQLSession,username,password,environment,fields,table):
+def get_visit_data(SQLSession,username,password,environment,domain,fields,table):
 
      date = SQLSession.get_last_visit_date(table=table,column='visit_date')
 
-     df = download_visits(username=username,password=password,date=date,env=environment,headless_mode=False)
+     df = download_visits(username=username,password=password,date=date,env=environment,domain=domain,headless_mode=False)
 
      df.columns = fields
 
@@ -141,7 +141,7 @@ def update_involves_clinical_db(block='involves-clinical-env-vars'):
                                 password=env_vars.get('PASSWORD')
                                 )
      
-     SQLSession = SQLServerEngine(server=vars.get('SERVER'),database=vars.get('DATABASE'))
+     SQLSession = SQLServerEngine(engine_type=env_vars.get('ENGINE'),server=env_vars.get('SERVER'),database=env_vars.get('DATABASE'))
 
      pos = get_pointofsale_data.submit(Client=Client,SQLSession=SQLSession,
                                            fields=['id','pointOfSaleBaseId','name','code','enabled','region_name',
@@ -153,7 +153,8 @@ def update_involves_clinical_db(block='involves-clinical-env-vars'):
                                          )
      visits = get_visit_data.submit(SQLSession=SQLSession,
                              username=env_vars.get('USERNAME'),password=env_vars.get('PASSWORD'),environment=env_vars.get('ENVIRONMENT'),
-                             fields=['visit_date','customer_id','employee_name','visit_status','check_in','check_out'],table='Visit')
+                             domain=env_vars.get('DOMAIN'),fields=['visit_date','customer_id','employee_name',
+                                                                   'visit_status','check_in','check_out'],table='Visit')
      
      update_table.map(SQLSession=SQLSession,dfs=[pos,employees,visits],table=['PointOfSale','Employee','Visit'], primary_key='id')
 
