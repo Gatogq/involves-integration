@@ -195,7 +195,7 @@ def download_visits(username,password,date,env,domain,wait=10,download_folder=No
     visits = join(download_folder,file_name)
     
     try:
-        print("Iniciando proceso de descarga en https://dkt.involves.com/login")
+        print(f"Iniciando proceso de descarga en https://{domain}.involves.com/login")
         chrome_options = webdriver.ChromeOptions()
         prefs = {"download.default_directory" : f'{download_folder}'}
         chrome_options.add_experimental_option("prefs",prefs)
