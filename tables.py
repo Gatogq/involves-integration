@@ -44,6 +44,6 @@ visit = Table(
 )
 
 
-
-# Create the table in the database
-metadata.create_all(engine)
+if __name__ == '__main__':
+    
+    metadata.create_all(engine)
