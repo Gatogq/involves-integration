@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine, MetaData, Table, select
+from datetime import datetime
 
 class SQLServerEngine:
 
@@ -6,9 +7,10 @@ class SQLServerEngine:
     
         self.server = server
         self.database = database
-        if engine_type == 'mssql':
+        self.engine_type = engine_type
+        if self.engine_type == 'mssql':
             self.connection_url = f'mssql+pyodbc://{self.server}/{self.database}?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes'
-        elif engine_type == 'sqlite':
+        elif self.engine_type == 'sqlite':
             self.connection_url = f'sqlite:///{database}'
 
         self.engine = create_engine(self.connection_url)
@@ -78,7 +80,7 @@ class SQLServerEngine:
 
     def get_columns_from_table(self, table):
 
-        if self.type == 'mssql':
+        if self.engine_type == 'mssql':
 
             r = self.execute_query(f'''SELECT COLUMN_NAME
                                 FROM INFORMATION_sCHEMA.COLUMNS
@@ -86,28 +88,64 @@ class SQLServerEngine:
                                  ''')
             return [row[0] for row in r]
             
-        elif self.type == 'sqlite':
+        elif self.engine_type == 'sqlite':
 
             r = f'''
                 PRAGMA table_info({table}
             '''
             return [row['name'] for row in r]
     
-    def get_last_update_timestamp(self, table,time_column):
+    def get_last_update(self, table,time_column):
 
         r = self.execute_query(f"SELECT MAX({time_column}) FROM {table}")
         if r:
             return r[0][0] or 0
         else:
-            return 0 
+            return 0
+
+    def get_last_visit_date(self,table,column):
+
+        subquery = f'SELECT MAX({column}) FROM {table}'
+
+        query = f'{subquery} WHERE {column} < ({subquery})' 
+
+        r = self.execute_query(query)
+
+        if self.engine_type == 'mssql':
+
+            if r:
+                return r[0][0] or datetime(2023,11,1)
+        
+            else:
+                return datetime(2023,11,1)
+        
+        if self.engine_type == 'sqlite':
+
+            if r:
+                return datetime.strptime(r[0][0], '%Y-%m-%d') or datetime(2023,11,1)
+            
+            else:
+                return datetime(2023,11,1)
     
-    def select_values(self,table,column):
+    def select_values(self,table,columns):
 
         metadata = MetaData()
         table = Table(table,metadata,autoload=True,autoload_with=self.engine)
 
-        query = select([table.c[column]])
+        query = select([table.c[column] for column in columns])
+        
         r = self.execute_query(query)
 
-        return [row[0] for row in r]
-    
+        if len(columns) > 1:
+
+            return [tuple(row) for row in r]
+        else:
+            return [row[0] for row in r]
+
+
+if __name__ == "__main__":
+
+    engine = SQLServerEngine(engine_type='sqlite',database='example.db')
+
+    x = engine.select_values(table='Visit',columns=['visit_date','customer_id'])
+    print(x)

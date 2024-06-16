@@ -1,11 +1,12 @@
 from src.involves_client import InvolvesAPIClient
 from src.sql_engine import SQLServerEngine
-from src.utilities import set_null_values
+from src.utilities import set_null_values,download_visits
 from datetime import datetime
-import pandas as pd
+from pandas import DataFrame, to_datetime
 from prefect import task, flow
 from prefect.blocks.system import JSON
 from prefect.artifacts import create_markdown_artifact
+from numpy import NaN
 
 
 @task(name='actualizar tabla SQL',log_prints=True)
@@ -21,8 +22,8 @@ def update_table(SQLSession,dfs,table,primary_key):
                create_markdown_artifact(markdown=df.to_markdown(index=False),description='Registros nuevos')
     
           else:
-               print(f'No se encontraron registros modificados para actualizar en la tabla {table}')
-     
+               print(f'No se encontraron registros nuevos para actualizar en la tabla {table}')
+
      if 'update' in dfs:
 
           df = dfs['update']
@@ -33,7 +34,7 @@ def update_table(SQLSession,dfs,table,primary_key):
                create_markdown_artifact(markdown=df.to_markdown(index=False),description='Registros actualizados')
 
           else:
-               print(f'No se encontraron registros nuevos para añadir a la tabla {table}')
+               print(f'No se encontraron registros modificados para añadir a la tabla {table}')
 
      if 'delete' in dfs:
            
@@ -51,15 +52,15 @@ def get_pointofsale_data(Client,SQLSession,fields,table):
 
      timestamp = int(datetime.now().timestamp()*1000)
 
-     last_update_timestamp = SQLSession.get_last_update_timestamp(table=table,time_column='updated_at')
+     last_update_timestamp = SQLSession.get_last_update(table=table,time_column='updated_at')
 
      rows = Client.get_pointsofsale(select=fields,updatedAtMillis=last_update_timestamp)
 
      if rows:
             
-            df = pd.DataFrame(rows).assign(updated_at=timestamp).map(set_null_values)
+            df = DataFrame(rows).assign(updated_at=timestamp).map(set_null_values)
 
-            ids = set(SQLSession.select_values(table=table,column='id'))
+            ids = set(SQLSession.select_values(table=table,columns=['id']))
 
             df_to_insert = df[~df['id'].isin(ids)]
 
@@ -68,8 +69,8 @@ def get_pointofsale_data(Client,SQLSession,fields,table):
     
      else:
 
-            df_to_insert = pd.DataFrame({})
-            df_to_update = pd.DataFrame({})
+            df_to_insert = DataFrame({})
+            df_to_update = DataFrame({})
             print('No se añadieron o modificaron registros desde la última actualización')
 
 
@@ -78,22 +79,20 @@ def get_pointofsale_data(Client,SQLSession,fields,table):
           'update':df_to_update
      } 
      
-
-
 @task(name='descarga empleados',log_prints=True)
 def get_employee_data(Client,SQLSession,fields,table):
 
      timestamp = int(datetime.now().timestamp()*1000)
 
-     last_update_timestamp = SQLSession.get_last_update_timestamp(table=table,time_column='updated_at')
+     last_update_timestamp = SQLSession.get_last_update(table=table,time_column='updated_at')
 
      rows = Client.get_employees(select=fields,updatedAtMillis=last_update_timestamp)
 
      if rows:
             
-            df = pd.DataFrame(rows).assign(updated_at=timestamp).map(set_null_values)
+            df = DataFrame(rows).assign(updated_at=timestamp).map(set_null_values)
 
-            ids = set(SQLSession.select_values(table=table,column='id'))
+            ids = set(SQLSession.select_values(table=table,columns=['id']))
 
             df_to_insert = df[~df['id'].isin(ids)]
 
@@ -101,8 +100,8 @@ def get_employee_data(Client,SQLSession,fields,table):
             
      else:
 
-            df_to_insert = pd.DataFrame({})
-            df_to_update = pd.DataFrame({})
+            df_to_insert = DataFrame({})
+            df_to_update = DataFrame({})
             print('No se añadieron o modificaron registros desde la última actualización')
 
 
@@ -111,96 +110,54 @@ def get_employee_data(Client,SQLSession,fields,table):
           'update':df_to_update
           }
 
+@task(name='Descarga visitas',log_prints=True)
+def get_visit_data(SQLSession,username,password,environment,fields,table):
+
+     date = SQLSession.get_last_visit_date(table=table,column='visit_date')
+
+     df = download_visits(username=username,password=password,date=date,env=environment,headless_mode=False).map(set_null_values)
+
+     df.columns = fields
+
+     ids = set(SQLSession.select_values(table=table,columns=['visit_date','customer_id']))
+
+     df_to_insert = df[~df.apply(lambda row: (row['visit_date'],row['customer_id']) in ids, axis=1)]
+
+     df_to_insert = df_to_insert.replace({NaN: None})
+
+     return {
+          'insert' : df_to_insert
+     }
+
+
 @flow(log_prints=True)
 def update_involves_clinical_db(block='involves-clinical-env-vars'):
      
-     vars = JSON.load(block).value
+     env_vars = JSON.load(block).value
 
-     environment = vars['ENVIRONMENT']
-     domain = vars['DOMAIN']
-     username = vars['USERNAME']
-     password = vars['PASSWORD']
-     server = vars['SERVER']
-     database = vars['DATABASE']
-
-     Client = InvolvesAPIClient(environment,domain,username,password)
-     SQLSession = SQLServerEngine(engine_type='sqlite',database='example.db')
+     Client = InvolvesAPIClient(environment=env_vars.get('ENVIRONMENT'),
+                                domain=env_vars.get('DOMAIN'),
+                                username=env_vars.get('USERNAME'),
+                                password=env_vars.get('PASSWORD')
+                                )
+     
+     SQLSession = SQLServerEngine(server=vars.get('SERVER'),database=vars.get('DATABASE'))
 
      pos = get_pointofsale_data.submit(Client=Client,SQLSession=SQLSession,
-                                           fields=['id','name','code','enabled','region_name',
+                                           fields=['id','pointOfSaleBaseId','name','code','enabled','region_name',
                                          'chain_name','pointOfSaleType','pointOfSaleProfile','pointOfSaleChannel_name',
                                          'address_zipCode','address_latitude','address_longitude','deleted'],table='PointOfSale'
                                          )
      employees = get_employee_data.submit(Client=Client,SQLSession=SQLSession,
                                         fields=['id','name'],table='Employee'
                                          )
+     visits = get_visit_data.submit(SQLSession=SQLSession,
+                             username=env_vars.get('USERNAME'),password=env_vars.get('PASSWORD'),environment=env_vars.get('ENVIRONMENT'),
+                             fields=['visit_date','customer_id','employee_name','visit_status','check_in','check_out'],table='Visit')
      
-     update_table.map(SQLSession=SQLSession,dfs=[pos,employees],table=['PointOfSale','Employee'],primary_key='id')
-
-
-     
-     #insert_records(SQLSession=SQLSession,df=employees_to_insert,table='Employee')
-     #update_records(SQLSession=SQLSession,df=employees_to_update,table='Employee',primary_key='id')
-     
-     
-     
-     
-
-     
-     
+     update_table.map(SQLSession=SQLSession,dfs=[pos,employees,visits],table=['PointOfSale','Employee','Visit'], primary_key='id')
 
 
 if __name__ == "__main__": 
 
-     update_involves_clinical_db()    
-
-    # #Initialize InvolvesAPIClient object for further interaction with Involves Stage API
-    # Client = InvolvesAPIClient(environment=5,domain='dkt',username='sistemas',password='sistemas')
-
-    # #Initialize SQLSession object for further database operations within encapsulated Sessions
-    # SQLSession = SQLServerEngine(engine_type='sqlite',database='example.db')
-
-    # #timestamp in milliseconds since unix epoch time
-    # timestamp = int(datetime.now().timestamp()*1000)
-
-    # #get the timestamp corresponding to the last database update
-    # last_update_timestamp = SQLSession.get_last_update_timestamp(table='PointOfSale',time_column='updated_at') 
-
-
-    # #api call to get points of sale that were created or modified since last database update
-    # rows = Client.get_pointsofsale(select=['id','name','code','enabled','region_name',
-    #                                     'chain_name','pointOfSaleType','pointOfSaleProfile','pointOfSaleChannel_name',
-    #                                     'address_zipCode','address_latitude','address_longitude','deleted'
-    #                                     ],updatedAtMillis=last_update_timestamp)
-
-    # if rows:
-
-    # #algorithm that returns two dataframes: df_to_insert contains new records, while df_to_update contains
-    # #modified records that already exist on the database.
-
-    #     df = pd.DataFrame(rows).assign(updated_at=timestamp).map(set_null_values)
-
-    #     ids = set(SQLSession.select_values(table='PointofSale',column='id'))
-
-    #     df_to_insert = df[~df['id'].isin(ids)]
-
-    #     df_to_update = df[df['id'].isin(ids)]
-
-    #     #bulk insert operation with df_to_insert
-    #     if not df_to_insert.empty:
-
-    #             SQLSession.bulk_insert_from_df(table_name='PointOfSale',df=df_to_insert)
-
-    #     else:
-    #         print(f'No se encontraron registros nuevos para añadir a la tabla PointOfSale')
-
-    # #update operation with df_to_update
-    #     if not df_to_update.empty:
-            
-    #         SQLSession.update_records_from_df(table_name='PointOfSale',df=df_to_update,primary_key='id')
-
-    #     else:
-    #         print(f'No se encontraron registros modificados para actualizar en la tabla PointOfSale')
-    # else:
-    #     print('No se añadieron o modificaron registros desde la última actualización')
-
+     update_involves_clinical_db()
