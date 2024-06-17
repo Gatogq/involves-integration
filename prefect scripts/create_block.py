@@ -7,4 +7,4 @@ print(env_vars)
 
 json_block = JSON(value=env_vars)
 
-json_block.save(name="involves-workpool-environment-variables")
+json_block.save(name="involves-clinical-env-vars")

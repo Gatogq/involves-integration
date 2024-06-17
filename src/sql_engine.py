@@ -4,11 +4,12 @@ from sqlalchemy.exc import IntegrityError,OperationalError,SQLAlchemyError
 
 class SQLServerEngine:
 
-    def __init__(self,engine_type,server=None,database=None):
-    
+    def __init__(self,engine_type='mssql',server=None,database=None):
+
+        self.engine_type = engine_type
         self.server = server
         self.database = database
-        self.engine_type = engine_type
+        
         if self.engine_type == 'mssql':
             self.connection_url = f'mssql+pyodbc://{self.server}/{self.database}?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes'
         elif self.engine_type == 'sqlite':

@@ -7,29 +7,52 @@ name: Involves
 prefect-version: 2.19.1
 
 # build section allows you to manage and build docker images
-build: null
+build:
 
 # push section allows you to manage if and how this project is uploaded to remote locations
-push: null
+push:
 
 # pull section allows you to provide instructions for cloning this project in remote locations
 pull:
 - prefect.deployments.steps.git_clone:
     repository: https://github.com/Gatogq/involves-integration.git
     branch: main
-    access_token: null
+    access_token:
 
 # the deployments section allows you to provide configuration for deploying flows
 deployments:
-- name: null
-  version: null
+- name:
+  version:
   tags: []
-  description: null
+  description:
   schedule: {}
-  flow_name: null
-  entrypoint: null
+  flow_name:
+  entrypoint:
   parameters: {}
   work_pool:
-    name: null
-    work_queue_name: null
+    name:
+    work_queue_name:
     job_variables: {}
+- name: actualizar_base_involves_clinical
+  version:
+  tags: []
+  description:
+  entrypoint: ./flows.py:update_involves_clinical_db
+  parameters:
+    environment: "{{ prefect.blocks.json.involves-clinical-env-vars.ENVIRONMENT}}"
+    domain: "{{prefect.blocks.json.involves-clinical-env-vars.DOMAIN }}"
+    username: "{{ prefect.blocks.json.involves-clinical-env-vars.USERNAME}}"
+    password: "{{ prefect.blocks.json.involves-clinical-env-vars.PASSWORD}}"
+    engine_type: "{{ prefect.blocks.json.involves-clinical-env-vars.ENGINE}}"
+    database: "{{prefect.blocks.json.involves-clinical-env-vars.DATABASE}}"
+    server: "{{prefect.blocks.json.involves-clinical-env-vars.SERVER}}"
+
+  work_pool:
+    name: involves-env
+    work_queue_name:
+    job_variables: {}
+    
+  schedules:
+    - cron: "0 7,9,11,13,15,17,18,23 * * *"
+      timezone: "America/Mexico_City"
+      active: true

@@ -18,7 +18,7 @@ def update_table(SQLSession,dfs,table,primary_key):
 
           if not df.empty:
 
-               SQLSession.bulk_insert_from_df(table_name=table,df=df)
+               SQLSession.bulk_insert_from_df(table,df)
                create_markdown_artifact(markdown=df.to_markdown(index=False),description='Registros nuevos')
     
           else:
@@ -30,7 +30,7 @@ def update_table(SQLSession,dfs,table,primary_key):
      
           if not df.empty:
                
-               SQLSession.update_records_from_df(table_name=table,df=df,primary_key=primary_key)
+               SQLSession.update_records_from_df(table,df,primary_key)
                create_markdown_artifact(markdown=df.to_markdown(index=False),description='Registros actualizados')
 
           else:
@@ -43,24 +43,25 @@ def update_table(SQLSession,dfs,table,primary_key):
            if not df.empty:
                 #---
                 create_markdown_artifact(markdown=df.to_markdown(index=False),description='Registros eliminados')
-          
+               
            else:
                print(f'No se encontraron registros eliminados en la tabla {table}')
+
 
 @task(name='descarga puntos de venta',log_prints=True)
 def get_pointofsale_data(Client,SQLSession,fields,table):
 
      timestamp = int(datetime.now().timestamp()*1000)
 
-     last_update_timestamp = SQLSession.get_last_update(table=table,time_column='updated_at')
+     last_update_timestamp = SQLSession.get_last_update(table,time_column='updated_at')
 
      rows = Client.get_pointsofsale(select=fields,updatedAtMillis=last_update_timestamp)
 
      if rows:
             
-            df = DataFrame(rows).assign(updated_at=timestamp).map(set_null_values)
+            df = DataFrame(rows).assign(updated_at=timestamp).map(set_null_values).replace({NaN:None})
 
-            ids = set(SQLSession.select_values(table=table,columns=['id']))
+            ids = set(SQLSession.select_values(table,columns=['id']))
 
             df_to_insert = df[~df['id'].isin(ids)]
 
@@ -84,15 +85,15 @@ def get_employee_data(Client,SQLSession,fields,table):
 
      timestamp = int(datetime.now().timestamp()*1000)
 
-     last_update_timestamp = SQLSession.get_last_update(table=table,time_column='updated_at')
+     last_update_timestamp = SQLSession.get_last_update(table,time_column='updated_at')
 
      rows = Client.get_employees(select=fields,updatedAtMillis=last_update_timestamp)
 
      if rows:
             
-            df = DataFrame(rows).assign(updated_at=timestamp).map(set_null_values)
+            df = DataFrame(rows).assign(updated_at=timestamp).map(set_null_values).replace({NaN:None})
 
-            ids = set(SQLSession.select_values(table=table,columns=['id']))
+            ids = set(SQLSession.select_values(table,columns=['id']))
 
             df_to_insert = df[~df['id'].isin(ids)]
 
@@ -113,52 +114,45 @@ def get_employee_data(Client,SQLSession,fields,table):
 @task(name='Descarga visitas',log_prints=True)
 def get_visit_data(SQLSession,username,password,environment,domain,fields,table):
 
-     date = SQLSession.get_last_visit_date(table=table,column='visit_date')
+     date = SQLSession.get_last_visit_date(table,column='visit_date')
 
-     df = download_visits(username=username,password=password,date=date,env=environment,domain=domain,headless_mode=False)
+     df = download_visits(username,password,date,environment,domain)
 
      df.columns = fields
 
-     ids = set(SQLSession.select_values(table=table,columns=['visit_date','customer_id']))
+     ids = set(SQLSession.select_values(table,columns=['visit_date','customer_id']))
 
-     df_to_insert = df[~df.apply(lambda row: (row['visit_date'],row['customer_id']) in ids, axis=1)]
-
-     df_to_insert = df_to_insert.replace({NaN: None})
+     df_to_insert = df[~df.apply(lambda row: (row['visit_date'],row['customer_id']) in ids, axis=1)].replace({NaN:None})
 
      return {
+
           'insert' : df_to_insert
      }
 
 
 @flow(log_prints=True)
-def update_involves_clinical_db(block='involves-clinical-env-vars'):
-     
-     env_vars = JSON.load(block).value
+def update_involves_clinical_db(environment,domain,username,password,engine_type,database,server):
 
-     Client = InvolvesAPIClient(environment=env_vars.get('ENVIRONMENT'),
-                                domain=env_vars.get('DOMAIN'),
-                                username=env_vars.get('USERNAME'),
-                                password=env_vars.get('PASSWORD')
-                                )
+     Client = InvolvesAPIClient(environment,domain,username,password)
      
-     SQLSession = SQLServerEngine(engine_type=env_vars.get('ENGINE'),server=env_vars.get('SERVER'),database=env_vars.get('DATABASE'))
+     SQLSession = SQLServerEngine(engine_type,server,database)
 
      pos = get_pointofsale_data.submit(Client=Client,SQLSession=SQLSession,
-                                           fields=['id','pointOfSaleBaseId','name','code','enabled','region_name',
-                                         'chain_name','pointOfSaleType','pointOfSaleProfile','pointOfSaleChannel_name',
-                                         'address_zipCode','address_latitude','address_longitude','deleted'],table='PointOfSale'
+                                           fields=['id','pointOfSaleBaseId','name','code','enabled','region_id',
+                                         'chain_id','pointOfSaleChannel_id',
+                                         'address_zipCode','address_city_name','address_city_state_name','address_latitude','address_longitude','deleted'],table='PointOfSale2'
                                          )
      employees = get_employee_data.submit(Client=Client,SQLSession=SQLSession,
-                                        fields=['id','name'],table='Employee'
+                                        fields=['id','name','nationalIdCard2','userGroup_name','email','enabled','fieldTeam'],table='Employee2'
                                          )
-     visits = get_visit_data.submit(SQLSession=SQLSession,
-                             username=env_vars.get('USERNAME'),password=env_vars.get('PASSWORD'),environment=env_vars.get('ENVIRONMENT'),
-                             domain=env_vars.get('DOMAIN'),fields=['visit_date','customer_id','employee_name',
-                                                                   'visit_status','check_in','check_out'],table='Visit')
+     visits = get_visit_data.submit(SQLSession,username,password,environment,domain,fields=['visit_date','customer_id','employee_name',
+                                                                   'visit_status','check_in','check_out'],table='Visit2')
      
-     update_table.map(SQLSession=SQLSession,dfs=[pos,employees,visits],table=['PointOfSale','Employee','Visit'], primary_key='id')
+     update_table.map(SQLSession,dfs=[pos,employees,visits],table=['PointOfSale2','Employee2','Visit2'], primary_key='id')
+
 
 
 if __name__ == "__main__": 
 
-     update_involves_clinical_db()
+     update_involves_clinical_db(environment=5,domain='dkt',username='sistemas',
+                                 password='sistemas',engine_type='mssql',database='Involves',server='172.16.0.7')
