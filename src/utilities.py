@@ -187,7 +187,7 @@ def set_null_values(value):
     return value
 
 
-def download_visits(username,password,date,env,domain,wait=10,download_folder=None,headless_mode=False,file_name='informe-gerencial-visitas.xlsx'):
+def download_visits(username,password,date,env,domain,wait=10,download_folder=None,headless_mode=True,file_name='informe-gerencial-visitas.xlsx'):
     
     if download_folder is None:
         download_folder = mkdtemp()
