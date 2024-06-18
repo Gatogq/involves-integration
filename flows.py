@@ -8,6 +8,31 @@ from prefect.blocks.system import JSON
 from prefect.artifacts import create_markdown_artifact
 from numpy import NaN
 
+def success_hook(flow, flow_run, state):
+
+    from prefect.blocks.notifications import MicrosoftTeamsWebhook
+
+    teams_webhook_block = MicrosoftTeamsWebhook.load("teams-notifications-webhook")
+
+    completion_time = datetime.now()
+
+    teams_webhook_block.notify(f"""Se ejecutó correctamente el flujo {flow.name}. 
+                               flujo concluido con status {state} en {completion_time}.
+                               para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_id}""")
+    
+    
+def failure_hook(flow, flow_run, state):
+
+    from prefect.blocks.notifications import MicrosoftTeamsWebhook
+
+    teams_webhook_block = MicrosoftTeamsWebhook.load("teams-notifications-webhook")
+
+    completion_time = datetime.now()
+
+    teams_webhook_block.notify(f"""Ocurrió un error al intentar ejecutar el flujo {flow.name}.
+                                flujo concluido con status {state} en {completion_time}.
+                                para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_id}""")
+
 
 @task(name='actualizar tabla SQL',log_prints=True)
 def update_table(SQLSession,dfs,table,primary_key):
@@ -48,7 +73,7 @@ def update_table(SQLSession,dfs,table,primary_key):
                print(f'No se encontraron registros eliminados en la tabla {table}')
 
 
-@task(name='descarga puntos de venta',log_prints=True)
+@task(name='descarga puntos de venta',log_prints=True,retries=2)
 def get_pointofsale_data(Client,SQLSession,fields,table):
 
      timestamp = int(datetime.now().timestamp()*1000)
@@ -80,7 +105,7 @@ def get_pointofsale_data(Client,SQLSession,fields,table):
           'update':df_to_update
      } 
      
-@task(name='descarga empleados',log_prints=True)
+@task(name='descarga empleados',log_prints=True,retries=2)
 def get_employee_data(Client,SQLSession,fields,table):
 
      timestamp = int(datetime.now().timestamp()*1000)
@@ -111,7 +136,22 @@ def get_employee_data(Client,SQLSession,fields,table):
           'update':df_to_update
           }
 
-@task(name='Descarga visitas',log_prints=True)
+
+def get_visit_retry_handler(task,task_run,state):
+
+     try: 
+          state.result()
+
+     except FileNotFoundError:
+
+          return True
+
+     except:
+
+          return False
+
+     
+@task(name='Descarga visitas',log_prints=True,retries=3,retry_condition_fn=get_visit_retry_handler)
 def get_visit_data(SQLSession,username,password,environment,domain,fields,table):
 
      date = SQLSession.get_last_visit_date(table,column='visit_date')
@@ -130,7 +170,17 @@ def get_visit_data(SQLSession,username,password,environment,domain,fields,table)
      }
 
 
-@flow(name='flujo involves (clinical)' ,log_prints=True)
+
+@flow(name='flujo involves (clinical)',
+      description='''este flujo actualiza la base de datos de Involves de Clinical.
+      se actualizan registros modificados y se insertan registros nuevos
+      en las tablas PointOfSale, Employee, Visit, Channel, Region y Chain''',
+      log_prints=True,
+      on_completion=[success_hook],
+      on_crashed=[failure_hook],
+      on_failure=[failure_hook]
+      )
+
 def update_involves_cl(environment,domain,username,password,engine_type,database,server):
 
      Client = InvolvesAPIClient(environment,domain,username,password)
