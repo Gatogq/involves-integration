@@ -12,13 +12,13 @@ def success_hook(flow, flow_run, state):
 
     from prefect.blocks.notifications import MicrosoftTeamsWebhook
 
-    teams_webhook_block = MicrosoftTeamsWebhook.load("teams-notifications-webhook")
+    teams_webhook_block = MicrosoftTeamsWebhook.load("teams-notifications-webhook") 
 
     completion_time = datetime.now()
 
     teams_webhook_block.notify(f"""Se ejecutó correctamente el flujo {flow.name}. 
                                flujo concluido con status {state} en {completion_time}.
-                               para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_run_id}""")
+                               para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.__dict__}""")
     
     
 def failure_hook(flow, flow_run, state):
@@ -31,7 +31,7 @@ def failure_hook(flow, flow_run, state):
 
     teams_webhook_block.notify(f"""Ocurrió un error al intentar ejecutar el flujo {flow.name}.
                                 flujo concluido con status {state} en {completion_time}.
-                                para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_run_id}""")
+                                para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.__dict__}""")
 
 
 @task(name='actualizar tabla SQL',log_prints=True)
