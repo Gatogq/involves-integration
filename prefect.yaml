@@ -39,11 +39,11 @@ deployments:
   description:
   entrypoint: ./flows.py:update_involves_cl
   parameters:
-    environment: "{{ prefect.blocks.json.involves-clinical-env-vars.ENVIRONMENT}}"
+    environment: 5
     domain: "{{prefect.blocks.json.involves-clinical-env-vars.DOMAIN }}"
-    username: "{{ prefect.blocks.json.involves-clinical-env-vars.USERNAME}}"
-    password: "{{ prefect.blocks.json.involves-clinical-env-vars.PASSWORD}}"
-    engine_type: "{{ prefect.blocks.json.involves-clinical-env-vars.ENGINE}}"
+    username: "{{prefect.blocks.json.involves-clinical-env-vars.USERNAME}}"
+    password: "{{prefect.blocks.json.involves-clinical-env-vars.PASSWORD}}"
+    engine_type: "{{prefect.blocks.json.involves-clinical-env-vars.ENGINE}}"
     database: "{{prefect.blocks.json.involves-clinical-env-vars.DATABASE}}"
     server: "{{prefect.blocks.json.involves-clinical-env-vars.SERVER}}"
 
