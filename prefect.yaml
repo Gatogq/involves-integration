@@ -33,11 +33,11 @@ deployments:
     name:
     work_queue_name:
     job_variables: {}
-- name: actualizar_base_involves_clinical
+- name: actualizacion programada clinical
   version:
   tags: []
   description:
-  entrypoint: ./flows.py:update_involves_clinical_db
+  entrypoint: ./flows.py:update_involves_cl
   parameters:
     environment: "{{ prefect.blocks.json.involves-clinical-env-vars.ENVIRONMENT}}"
     domain: "{{prefect.blocks.json.involves-clinical-env-vars.DOMAIN }}"

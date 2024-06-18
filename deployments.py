@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
                         ).deploy(
                             name='actualizar_base_involves_clinical_sql',
-                            work_pool_name='Involves',
+                            work_pool_name='involves-env',
                             build=False,
                             
                         )

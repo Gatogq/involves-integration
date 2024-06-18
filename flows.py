@@ -130,8 +130,8 @@ def get_visit_data(SQLSession,username,password,environment,domain,fields,table)
      }
 
 
-@flow(log_prints=True)
-def update_involves_clinical_db(environment,domain,username,password,engine_type,database,server):
+@flow(name='flujo involves (clinical)' ,log_prints=True)
+def update_involves_cl(environment,domain,username,password,engine_type,database,server):
 
      Client = InvolvesAPIClient(environment,domain,username,password)
      
@@ -154,5 +154,17 @@ def update_involves_clinical_db(environment,domain,username,password,engine_type
 
 if __name__ == "__main__": 
 
-     update_involves_clinical_db(environment=5,domain='dkt',username='sistemas',
-                                 password='sistemas',engine_type='mssql',database='Involves',server='172.16.0.7')
+     env_vars = JSON.load('involves-clinical-env-vars').value
+
+     environment = env_vars['ENVIRONMENT'],
+     domain = env_vars['DOMAIN'],
+     username = env_vars['USERNAME'],
+     password = env_vars['PASSOWRD'],
+     engine_type = env_vars['ENGINE']
+     database = env_vars['DATABASE']
+     server = env_vars['SERVER']
+
+     update_involves_cl(environment=environment,
+                        domain=domain,username=username,
+                        password=password,engine_type=engine_type,
+                        database=database,server=server)
