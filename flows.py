@@ -18,7 +18,7 @@ def success_hook(flow, flow_run, state):
 
     teams_webhook_block.notify(f"""Se ejecutó correctamente el flujo {flow.name}. 
                                flujo concluido con status {state} en {completion_time}.
-                               para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_id}""")
+                               para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_run_id}""")
     
     
 def failure_hook(flow, flow_run, state):
@@ -31,7 +31,7 @@ def failure_hook(flow, flow_run, state):
 
     teams_webhook_block.notify(f"""Ocurrió un error al intentar ejecutar el flujo {flow.name}.
                                 flujo concluido con status {state} en {completion_time}.
-                                para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_id}""")
+                                para ver los detalles de la ejecución: http://172.16.0.7:4200/flow-runs/flow-run/{flow_run.flow_run_id}""")
 
 
 @task(name='actualizar tabla SQL',log_prints=True)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
      environment = env_vars['ENVIRONMENT'],
      domain = env_vars['DOMAIN'],
      username = env_vars['USERNAME'],
-     password = env_vars['PASSOWRD'],
+     password = env_vars['PASSWORD'],
      engine_type = env_vars['ENGINE']
      database = env_vars['DATABASE']
      server = env_vars['SERVER']
